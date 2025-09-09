@@ -1,9 +1,13 @@
 {
   "routes": [
+<<<<<<< HEAD
     { "src": "/assets/(.*)", "dest": "/assets/$1" },
     { "handle": "filesystem" },
     { "src": "/favicon.ico", "dest": "/favicon.ico" },
     { "src": "/robots.txt", "dest": "/robots.txt" },
+=======
+    { "handle": "filesystem" },
+>>>>>>> 8e6c4bf8f6f092341e003426e8c3c01d03d3c222
     { "src": "/.*", "dest": "/" }
   ]
 }
