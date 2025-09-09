@@ -1,9 +1,24 @@
+// src/components/Dashboard.tsx
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Copy, Loader2, Twitter, Linkedin, Instagram, Zap } from "lucide-react";
+import {
+  Sparkles,
+  Copy,
+  Loader2,
+  Twitter,
+  Linkedin,
+  Instagram,
+  Zap,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface GenerationResult {
@@ -12,26 +27,35 @@ interface GenerationResult {
   instagram: string;
 }
 
-// ---- Anropa vår serverless-funktion på Vercel ----
+/** Anropar vår serverless-funktion (Vercel) som sköter OpenAI */
 async function generatePosts(text: string): Promise<GenerationResult> {
   const resp = await fetch("/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),
   });
+
+  // Försök läsa ev. feltext från servern
   if (!resp.ok) {
-    const msg = await resp.text();
-    throw new Error(msg || `Request failed: ${resp.status}`);
+    let msg = `Request failed: ${resp.status}`;
+    try {
+      const t = await resp.text();
+      if (t) msg = t;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg);
   }
-  return resp.json(); // { tweets, linkedin, instagram }
+
+  return resp.json();
 }
 
 const Dashboard = () => {
   const [inputText, setInputText] = useState("");
   const [results, setResults] = useState<GenerationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [generationsLeft, setGenerationsLeft] = useState(5); // mock/placeholder
-  const [isPro] = useState(false); // mock/placeholder
+  const [generationsLeft, setGenerationsLeft] = useState(5); // enkel free-limit
+  const [isPro] = useState(false); // mockad Pro-flagga
   const { toast } = useToast();
 
   const handleGenerate = async () => {
@@ -46,22 +70,28 @@ const Dashboard = () => {
     if (!isPro && generationsLeft <= 0) {
       toast({
         title: "Limit reached",
-        description: "You've used all free generations. Upgrade to Pro for unlimited.",
+        description:
+          "You've used all free generations. Upgrade to Pro for unlimited.",
       });
       return;
     }
 
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      const data = await generatePosts(inputText);
+      const data = await generatePosts(inputText.trim());
       setResults(data);
-      if (!isPro) setGenerationsLeft((prev) => Math.max(0, prev - 1));
-      toast({ title: "Content generated!", description: "Your posts are ready." });
+      if (!isPro) setGenerationsLeft((n) => Math.max(0, n - 1));
+      toast({
+        title: "Content generated!",
+        description: "Your posts are ready.",
+      });
     } catch (e: any) {
       console.error(e);
       toast({
         title: "Generation failed",
-        description: e?.message || "Something went wrong. Check your API key and try again.",
+        description:
+          e?.message ||
+          "Something went wrong on the server. Check API key / logs and try again.",
         variant: "destructive",
       });
     } finally {
@@ -71,11 +101,18 @@ const Dashboard = () => {
 
   const handleCopy = (text: string, platform: string) => {
     navigator.clipboard.writeText(text);
-    toast({ title: "Copied!", description: `${platform} content copied to clipboard.` });
+    toast({
+      title: "Copied!",
+      description: `${platform} content copied to clipboard.`,
+    });
   };
 
   const handleUpgrade = () => {
-    toast({ title: "Upgrade to Pro", description: "Redirecting to pricing page..." });
+    toast({
+      title: "Upgrade to Pro",
+      description: "Redirecting to pricing page...",
+    });
+    // window.location.href = "/pricing"
   };
 
   return (
@@ -87,7 +124,10 @@ const Dashboard = () => {
             <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <span className="text-xl font-bold text-gradient cursor-pointer" onClick={() => (window.location.href = "/")}>
+            <span
+              className="text-xl font-bold text-gradient cursor-pointer"
+              onClick={() => (window.location.href = "/")}
+            >
               Repurpose Lite
             </span>
           </div>
@@ -99,7 +139,9 @@ const Dashboard = () => {
                 Unlimited
               </Badge>
             ) : (
-              <Badge className="usage-badge">Generations left: {generationsLeft}</Badge>
+              <Badge className="usage-badge">
+                Generations left: {generationsLeft}
+              </Badge>
             )}
 
             {!isPro && (
@@ -119,7 +161,9 @@ const Dashboard = () => {
               <Sparkles className="w-5 h-5 text-brand-primary" />
               Transform Your Content
             </CardTitle>
-            <CardDescription>Enter your original content and get platform-specific posts.</CardDescription>
+            <CardDescription>
+              Enter your original content and get platform-specific posts.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Textarea
@@ -128,9 +172,12 @@ const Dashboard = () => {
               onChange={(e) => setInputText(e.target.value)}
               className="min-h-32 resize-none border-muted"
               disabled={isLoading}
+              maxLength={2000}
             />
             <div className="flex justify-between items-center">
-              <div className="text-sm text-muted-foreground">{inputText.length} / 2000 characters</div>
+              <div className="text-sm text-muted-foreground">
+                {inputText.length} / 2000 characters
+              </div>
               <Button
                 variant="gradient"
                 onClick={handleGenerate}
@@ -154,7 +201,8 @@ const Dashboard = () => {
             {!isPro && generationsLeft === 0 && (
               <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg">
                 <p className="text-sm text-warning font-medium">
-                  You've reached your free limit. Upgrade to Pro for unlimited generations!
+                  You've reached your free limit. Upgrade to Pro for unlimited
+                  generations!
                 </p>
               </div>
             )}
@@ -191,7 +239,9 @@ const Dashboard = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleCopy(results.tweets.join("\n\n"), "Twitter")}
+                    onClick={() =>
+                      handleCopy(results.tweets.join("\n\n"), "Twitter")
+                    }
                     className="w-full"
                   >
                     <Copy className="w-4 h-4" />
@@ -211,7 +261,9 @@ const Dashboard = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="bg-muted/30 p-4 rounded-lg text-sm max-h-40 overflow-y-auto">{results.linkedin}</div>
+                  <div className="bg-muted/30 p-4 rounded-lg text-sm max-h-40 overflow-y-auto">
+                    {results.linkedin}
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"
@@ -235,7 +287,9 @@ const Dashboard = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="bg-muted/30 p-4 rounded-lg text-sm max-h-40 overflow-y-auto">{results.instagram}</div>
+                  <div className="bg-muted/30 p-4 rounded-lg text-sm max-h-40 overflow-y-auto">
+                    {results.instagram}
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"
@@ -257,9 +311,12 @@ const Dashboard = () => {
             <div className="w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Sparkles className="w-8 h-8 text-white" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">Ready to Create Magic?</h3>
+            <h3 className="text-xl font-semibold mb-2">
+              Ready to Create Magic?
+            </h3>
             <p className="text-muted-foreground">
-              Enter your content above and watch as AI transforms it into platform-specific posts.
+              Enter your content above and watch as AI transforms it into
+              platform-specific posts.
             </p>
           </div>
         )}
