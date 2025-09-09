@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  name         String?
+  image        String?
+  isPro        Boolean      @default(false)
+  proSince     DateTime?
+  generations  Generation[]
+  usages       Usage[]
+}
+
+model Generation {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  inputText   String
+  outputsJson Json
+  createdAt   DateTime @default(now())
+}
+
+model Usage {
+  id       String  @id @default(cuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id])
+  monthKey String  // e.g. "2025-09"
+  count    Int     @default(0)
+
+  @@unique([userId, monthKey])
+}
+
