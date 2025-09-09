@@ -1,15 +1,41 @@
+// api/generate.ts
 import OpenAI from "openai";
 
-export default async function handler(req: any, res: any) {
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
+export const config = { runtime: "edge" };
+
+export default async function handler(req: Request) {
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method Not Allowed" }), {
+      status: 405,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
+  let body: { text?: string } = {};
+  try {
+    body = await req.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
+  const text = (body.text ?? "").toString().trim();
+  if (!text) {
+    return new Response(JSON.stringify({ error: 'Missing "text"' }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
+    });
+  }
 
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: "Server misconfigured: OPENAI_API_KEY missing" });
-
-  const { text } = req.body ?? {};
-  const input = String(text ?? "").trim();
-  if (!input) return res.status(400).json({ error: 'Missing "text"' });
+  if (!apiKey) {
+    return new Response(JSON.stringify({ error: "OPENAI_API_KEY missing" }), {
+      status: 500,
+      headers: { "content-type": "application/json" },
+    });
+  }
 
   try {
     const client = new OpenAI({ apiKey });
@@ -21,25 +47,46 @@ export default async function handler(req: any, res: any) {
       messages: [
         {
           role: "system",
-          content:
-            'Return ONLY JSON with keys { "tweets": string[3], "linkedin": string, "instagram": string }. Language must match the input. No markdown/backticks.',
+          content: `Return ONLY a valid JSON object with EXACTLY:
+{
+  "tweets": string[3],
+  "linkedin": string,
+  "instagram": string
+}
+LANGUAGE must match the user's input. No markdown/backticks/explanations.`,
         },
-        { role: "user", content: input },
+        { role: "user", content: text },
       ],
     });
 
     const raw = completion.choices[0]?.message?.content ?? "{}";
     let parsed: any = {};
-    try { parsed = JSON.parse(raw); } catch { parsed = {}; }
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = {};
+    }
 
     const result = {
-      tweets: Array.isArray(parsed.tweets) ? parsed.tweets.slice(0, 3).map((t: any) => String(t)) : [],
+      tweets: Array.isArray(parsed.tweets)
+        ? parsed.tweets.slice(0, 3).map((t: any) => String(t))
+        : [],
       linkedin: String(parsed.linkedin ?? ""),
       instagram: String(parsed.instagram ?? ""),
     };
 
-    res.status(200).json(result);
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+      },
+    });
   } catch (e: any) {
-    res.status(500).json({ error: e?.message || "Internal Server Error" });
+    const msg = e?.message || "Internal Server Error";
+    return new Response(JSON.stringify({ error: `OpenAI error: ${msg}` }), {
+      status: 500,
+      headers: { "content-type": "application/json" },
+    });
   }
 }
