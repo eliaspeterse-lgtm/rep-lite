@@ -8,7 +8,6 @@ import { ArrowRight, Sparkles, Zap, Shield, Clock } from "lucide-react";
 const Index = () => {
   const [isScrolled, setIsScrolled] = useState(false);
 
-  // Sätt/ta bort scroll-lyssnare korrekt
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener("scroll", onScroll);
@@ -42,7 +41,7 @@ const Index = () => {
         </div>
       </nav>
 
-      {/* Hero Section */}
+      {/* Hero */}
       <section className="pt-32 pb-16 px-4">
         <div className="container mx-auto text-center max-w-4xl">
           <Badge className="mb-6 bg-brand-primary/10 text-brand-primary border-brand-primary/20">
@@ -70,7 +69,7 @@ const Index = () => {
             <Button variant="outline" size="xl">Watch Demo</Button>
           </div>
 
-          {/* Waitlist / Email capture */}
+          {/* Waitlist */}
           <form
             action="https://formspree.io/f/mkgvyjdn"
             method="POST"
@@ -83,6 +82,8 @@ const Index = () => {
               placeholder="Enter your email to join the waitlist"
               className="w-full sm:w-auto flex-1 px-3 py-2 rounded-md border bg-background"
             />
+            {/* Honeypot mot spam */}
+            <input type="text" name="_gotcha" className="hidden" tabIndex={-1} autoComplete="off" />
             <Button type="submit" variant="gradient" className="whitespace-nowrap">
               Join Waitlist
             </Button>
@@ -106,7 +107,7 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Features Section */}
+      {/* Features */}
       <section className="py-16 px-4 bg-gradient-to-b from-transparent to-muted/20">
         <div className="container mx-auto">
           <div className="text-center mb-12">
@@ -176,7 +177,7 @@ const Index = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* CTA */}
       <section className="py-16 px-4">
         <div className="container mx-auto text-center max-w-3xl">
           <h2 className="text-3xl font-bold mb-4">Ready to Transform Your Content?</h2>
