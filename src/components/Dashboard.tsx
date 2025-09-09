@@ -1,5 +1,4 @@
 import { useState } from "react";
-import OpenAI from "openai";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,71 +7,31 @@ import { Sparkles, Copy, Loader2, Twitter, Linkedin, Instagram, Zap } from "luci
 import { useToast } from "@/hooks/use-toast";
 
 interface GenerationResult {
-  tweets: string[];         // <-- array, inte string
+  tweets: string[];
   linkedin: string;
   instagram: string;
 }
 
-// OpenAI-klient för Vite/React (frontend). OK för MVP lokalt.
-// I produktion bör du flytta detta till ett backend-API.
-const client = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true,
-});
-
+// ---- Anropa vår serverless-funktion på Vercel ----
 async function generatePosts(text: string): Promise<GenerationResult> {
-  const completion = await client.chat.completions.create({
-    model: "gpt-4o-mini",
-    temperature: 0.7,
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "system",
-        content: `You are a social media repurposing assistant. 
-Return ONLY valid JSON with exactly these fields:
-{
-  "tweets": string[3],
-  "linkedin": string,
-  "instagram": string
-}
-
-HARD RULES
-- LANGUAGE: Use the SAME language as the user's input. DO NOT translate. 
-  If the input is English, write English. If Swedish, write Swedish.
-- No corporate clichés or filler (e.g., "I wanted to share an insight...", "continuous learning" platitudes).
-- No markdown, no explanations — JSON object only.
-
-STYLE
-- Tweets: 3 variants, max 280 chars, casual, can use emojis, NO hashtags.
-- LinkedIn: 2–5 sentences, concise, personal-professional tone (not corporate PR).
-- Instagram: light, 2–4 relevant hashtags + emojis.`,
-      },
-      {
-        role: "user",
-        content: `LANGUAGE RULE: Reply in the exact same language as this text. Do NOT translate.
-TEXT:
-${text}`,
-      },
-    ],
+  const resp = await fetch("/api/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
   });
-
-  const raw = completion.choices[0].message?.content || "{}";
-  const parsed = JSON.parse(raw);
-
-  return {
-    tweets: Array.isArray(parsed.tweets) ? parsed.tweets.map((t: any) => String(t)) : [],
-    linkedin: String(parsed.linkedin || ""),
-    instagram: String(parsed.instagram || ""),
-  };
+  if (!resp.ok) {
+    const msg = await resp.text();
+    throw new Error(msg || `Request failed: ${resp.status}`);
+  }
+  return resp.json(); // { tweets, linkedin, instagram }
 }
-
 
 const Dashboard = () => {
   const [inputText, setInputText] = useState("");
   const [results, setResults] = useState<GenerationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [generationsLeft, setGenerationsLeft] = useState(5); // mock/placeholder
-  const [isPro, setIsPro] = useState(false); // mock/placeholder
+  const [isPro] = useState(false); // mock/placeholder
   const { toast } = useToast();
 
   const handleGenerate = async () => {
@@ -84,8 +43,6 @@ const Dashboard = () => {
       });
       return;
     }
-
-    // Free-tier spärr (mock)
     if (!isPro && generationsLeft <= 0) {
       toast({
         title: "Limit reached",
@@ -119,7 +76,6 @@ const Dashboard = () => {
 
   const handleUpgrade = () => {
     toast({ title: "Upgrade to Pro", description: "Redirecting to pricing page..." });
-    // window.location.href = "/pricing"  // när du lägger till pricing-sida
   };
 
   return (
