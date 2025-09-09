@@ -8,6 +8,7 @@ export default async function handler(req: Request) {
     return new Response("Method Not Allowed", { status: 405 });
   }
 
+  // Läs POST-body
   let body: { text?: string } = {};
   try {
     body = await req.json();
@@ -47,7 +48,7 @@ LANGUAGE: same as input. No markdown/backticks/explanations.`,
 
     const raw = completion.choices[0]?.message?.content ?? "{}";
     let parsed: any = {};
-    try { parsed = JSON.parse(raw); } catch {}
+    try { parsed = JSON.parse(raw); } catch { parsed = {}; }
 
     const result = {
       tweets: Array.isArray(parsed.tweets) ? parsed.tweets.slice(0, 3).map((t: any) => String(t)) : [],
