@@ -1,28 +1,19 @@
 import OpenAI from "openai";
-export const config = { runtime: "edge" };
 
-function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "content-type": "application/json", "cache-control": "no-store" },
-  });
-}
-
-export default async function handler(req: Request) {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204 });
-  if (req.method !== "POST") return json({ error: "Method Not Allowed" }, 405);
-
-  let body: any = {};
-  try { body = await req.json(); } catch { return json({ error: "Invalid JSON body" }, 400); }
-
-  const text = (body?.text ?? "").toString().trim();
-  if (!text) return json({ error: 'Missing "text"' }, 400);
+export default async function handler(req: any, res: any) {
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
 
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return json({ error: "Server misconfigured: OPENAI_API_KEY missing" }, 500);
+  if (!apiKey) return res.status(500).json({ error: "Server misconfigured: OPENAI_API_KEY missing" });
+
+  const { text } = req.body ?? {};
+  const input = String(text ?? "").trim();
+  if (!input) return res.status(400).json({ error: 'Missing "text"' });
 
   try {
     const client = new OpenAI({ apiKey });
+
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.7,
@@ -30,15 +21,10 @@ export default async function handler(req: Request) {
       messages: [
         {
           role: "system",
-          content: `Return ONLY JSON with EXACTLY:
-{
-  "tweets": string[3],
-  "linkedin": string,
-  "instagram": string
-}
-LANGUAGE must match input. No markdown/backticks/explanations.`
+          content:
+            'Return ONLY JSON with keys { "tweets": string[3], "linkedin": string, "instagram": string }. Language must match the input. No markdown/backticks.',
         },
-        { role: "user", content: text },
+        { role: "user", content: input },
       ],
     });
 
@@ -46,12 +32,14 @@ LANGUAGE must match input. No markdown/backticks/explanations.`
     let parsed: any = {};
     try { parsed = JSON.parse(raw); } catch { parsed = {}; }
 
-    return json({
+    const result = {
       tweets: Array.isArray(parsed.tweets) ? parsed.tweets.slice(0, 3).map((t: any) => String(t)) : [],
-      linkedin: typeof parsed.linkedin === "string" ? parsed.linkedin : "",
-      instagram: typeof parsed.instagram === "string" ? parsed.instagram : "",
-    });
+      linkedin: String(parsed.linkedin ?? ""),
+      instagram: String(parsed.instagram ?? ""),
+    };
+
+    res.status(200).json(result);
   } catch (e: any) {
-    return json({ error: e?.message ? `OpenAI error: ${e.message}` : "Internal Server Error" }, 500);
+    res.status(500).json({ error: e?.message || "Internal Server Error" });
   }
 }
